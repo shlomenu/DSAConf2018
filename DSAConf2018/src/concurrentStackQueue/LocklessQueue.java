@@ -5,26 +5,18 @@ import java.util.EmptyStackException;
 
 public class LocklessQueue<T> {
 
-	AtomicReference<Node> tail, head;
+	AtomicReference<Node<T>> tail, head;
 	
 	public LocklessQueue() {
-		tail = new AtomicReference<Node>();
+		tail = new AtomicReference<Node<T>>();
 		head = tail;
 	}
 	
-	private class Node {
-		public T value;
-		public AtomicReference<Node> next;
-		public Node(T _value) {
-			_value = value;
-			next = new AtomicReference<Node>(null);
-		}
-	}
 	public void enqueue(T value) {
-		Node node = new Node(value);
+		Node<T> node = new Node<T>(value);
 		while (true) {
-			Node last = tail.get();
-			Node next = last.next.get();
+			Node<T> last = tail.get();
+			Node<T> next = last.next.get();
 			if (last == tail.get()) {
 				if (next == null) {
 					if (last.next.compareAndSet(next, node)) {
@@ -43,9 +35,9 @@ public class LocklessQueue<T> {
 	
 	public T dequeue() throws EmptyStackException {
 		while (true) {
-			Node _head = head.get();
-			Node _tail = tail.get();
-			Node next = _head.next.get();
+			Node<T> _head = head.get();
+			Node<T> _tail = tail.get();
+			Node<T> next = _head.next.get();
 			if (_head == head.get()) {
 				if (_head == _tail) {
 					if (next == null) {
