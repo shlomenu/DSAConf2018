@@ -1,6 +1,7 @@
-package concurrentQueue;
+package concurrentStackQueue;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.EmptyStackException;
 
 public class LocklessQueue<T> {
 
@@ -48,7 +49,7 @@ public class LocklessQueue<T> {
 			if (_head == head.get()) {
 				if (_head == _tail) {
 					if (next == null) {
-						throw new EmptyException();
+						throw new EmptyStackException();
 					}
 				}
 				tail.compareAndSet(_tail, next);
