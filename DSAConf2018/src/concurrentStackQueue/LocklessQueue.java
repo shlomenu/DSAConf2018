@@ -41,7 +41,7 @@ public class LocklessQueue<T> {
 		}
 	}
 	
-	public T dequeue() throws EmptyException {
+	public T dequeue() throws EmptyStackException {
 		while (true) {
 			Node _head = head.get();
 			Node _tail = tail.get();
