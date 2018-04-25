@@ -6,12 +6,13 @@ import java.util.concurrent.TimeoutException;
 
 public class EliminationArray<T> {
 	
-	private static final int quantum = 1;
+	private static final int quantum = 10;
 	LocklessExchanger<T>[] exchangeArray;
 	Random random;
 	
+	@SuppressWarnings("unchecked")
 	public EliminationArray(int capacity) {
-		exchangeArray = (LocklessExchanger<T>[]) new Object[capacity];
+		exchangeArray = (LocklessExchanger<T>[]) new LocklessExchanger[capacity];
 		for (int i = 0; i < capacity; i++) {
 			exchangeArray[i] = new LocklessExchanger<T>();
 		}

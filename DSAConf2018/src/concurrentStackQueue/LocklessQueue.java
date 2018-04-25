@@ -5,26 +5,26 @@ import java.util.EmptyStackException;
 
 public class LocklessQueue<T> {
 
-	AtomicReference<Node<T>> tail, head;
+	AtomicReference<QueueNode<T>> tail, head;
 	
 	public LocklessQueue() {
-		tail = new AtomicReference<Node<T>>();
+		tail = new AtomicReference<QueueNode<T>>();
 		head = tail;
 	}
 	
 	public void enqueue(T value) {
-		Node<T> node = new Node<T>(value);
+		QueueNode<T> node = new QueueNode<T>(value);
 		while (true) {
-			Node<T> last = tail.get();
-			Node<T> next = last.next.get();
-			if (last == tail.get()) {
-				if (next == null) {
-					if (last.next.compareAndSet(next, node)) {
-						tail.compareAndSet(last, node);
+			QueueNode<T> _tail = tail.get();
+			QueueNode<T> _next = _tail.next.get();
+			if (_tail == tail.get()) {
+				if (_next == null) {
+					if (_tail.next.compareAndSet(_next, node)) {
+						tail.compareAndSet(_tail, node);
 						return;
 					}
 				} else {
-					tail.compareAndSet(last, next);
+					tail.compareAndSet(_tail, _next);
 				}
 	
 			}
@@ -35,26 +35,24 @@ public class LocklessQueue<T> {
 	
 	public T dequeue() throws EmptyStackException {
 		while (true) {
-			Node<T> _head = head.get();
-			Node<T> _tail = tail.get();
-			Node<T> next = _head.next.get();
+			QueueNode<T> _head = head.get();
+			QueueNode<T> _tail = tail.get();
+			QueueNode<T> _next = _head.next.get();
 			if (_head == head.get()) {
 				if (_head == _tail) {
-					if (next == null) {
+					if (_next == null) {
 						throw new EmptyStackException();
 					}
+					tail.compareAndSet(_tail, _next);
+				} else {
+					T _value = _next.value;
+					if (head.compareAndSet(_head, _next)) {
+						return _value;
+					}
 				}
-				tail.compareAndSet(_tail, next);
-			} else {
-				T _value = next.value;
-				if (head.compareAndSet(_head, next)) {
-					return _value;
-				}
-				
 			}
 		}
 	}
-	
 }
 	
 
