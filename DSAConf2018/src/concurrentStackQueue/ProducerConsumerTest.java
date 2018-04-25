@@ -2,6 +2,9 @@ package concurrentStackQueue;
 
 public class ProducerConsumerTest {
 	
+	static LocklessQueue<Integer> queue = new LocklessQueue<Integer>();
+	static EliminationBackoffStack<Integer> stack = new EliminationBackoffStack<Integer>(40);
+	
 	public void main(String[] args) {
 		Thread[] threads = new Thread[5];
 		
@@ -19,14 +22,12 @@ public class ProducerConsumerTest {
 	}
 	
 	private class QueueTest extends Thread {
-		static LocklessQueue queue = new LocklessQueue<Integer>();
 		public void run() {
 			
 		}
 	}
 	
 	private class StackTest extends Thread {
-		
 		public void run() {
 			
 		}
