@@ -1,4 +1,4 @@
-package concurrentStackQueue;
+package concurrentStack;
 
 public class RangePolicy {
 	

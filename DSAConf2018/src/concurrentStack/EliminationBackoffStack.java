@@ -1,4 +1,4 @@
-package concurrentStackQueue;
+package concurrentStack;
 
 import java.util.EmptyStackException;
 import java.util.concurrent.TimeoutException;

@@ -1,4 +1,4 @@
-package mineSweeping;
+package concurrentMineSweeper;
 
 
 import java.util.ArrayList;
@@ -9,7 +9,7 @@ import java.util.ArrayList;
  * 
  * @author Michael Siff
  */
-public class ArrayListQueue<T> implements QueueInterface<T> {
+public class ArrayListQueue<T> {
 
     private static final int INITIAL_CAP = 5;
     private static final int GROWTH_MULTIPLIER = 2;

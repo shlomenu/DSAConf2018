@@ -1,10 +1,4 @@
-package mineSweeping;
-
-// Data Structures & Algorithms
-// Spring 2018
-// HW2: bfs/dfs traversal
-// text-based comparison of bfs, dfs, and random walk us
-
+package concurrentMineSweeper;
 
 import java.util.Random;
 

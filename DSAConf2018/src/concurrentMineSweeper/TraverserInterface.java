@@ -1,9 +1,4 @@
-package mineSweeping;
-
-// Data Structures & Algorithms
-// Spring 2018
-// HW2: bfs/dfs traversal
-
+package concurrentMineSweeper;
 
 /**
  * interface for grid traversal

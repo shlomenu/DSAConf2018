@@ -1,10 +1,4 @@
-package mineSweeping;
-
-// Data Structures & Algorithms
-// Spring 2018
-// HW2: bfs/dfs traversal
-// visual comparison of bfs, dfs, and random walk
-
+package concurrentMineSweeper;
 
 import java.util.HashSet;
 import java.util.Random;
@@ -30,9 +24,6 @@ public class GuiTraverse extends Application {
     private static final int WIDTH = COLUMNS * SCALE;
     private static final int HEIGHT = ROWS * SCALE;
     private static final Color START_COLOR = Color.GREEN;
-    private static final Color FIRST_VISIT_COLOR = Color.ORANGE;
-    private static final Color REPEATED_VISIT_COLOR = Color.RED;
-
     private static Random randomizer = new Random();
     
     private HashSet<KeyCode> _pressed;
@@ -84,12 +75,16 @@ public class GuiTraverse extends Application {
                     }
                     if (_running && _grid.zeros() > 0 && _walker.hasNext()) {
                         Pair<Integer, Integer> p = _walker.next();
-                        if (_grid.get(p.first(), p.second()) > 0) {
-                            _paint(p.first(), p.second(), REPEATED_VISIT_COLOR);
-                        } else {
-                            _grid.increment(p.first(), p.second());
-                            _paint(p.first(), p.second(), FIRST_VISIT_COLOR);
+                        int numVisists = _grid.get(p.first(), p.second());
+                        Color shading = Color.color(0.1,  0.0,  0.1);
+                        for (int i = 0; i < numVisists; i++) {
+                        	shading = shading.invert();
+                        	shading = shading.darker();
+                        	shading = shading.invert();
+                        	shading = shading.saturate();
                         }
+                        _paint(p.first(), p.second(), shading);
+                        _grid.increment(p.first(), p.second());
                     }
                 }
             }

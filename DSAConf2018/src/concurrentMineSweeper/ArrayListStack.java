@@ -1,4 +1,4 @@
-package mineSweeping;
+package concurrentMineSweeper;
 
 import java.util.ArrayList;
 
@@ -8,7 +8,7 @@ import java.util.ArrayList;
  * 
  * @author Michael Siff
  */
-public class ArrayListStack<T> implements StackInterface<T> {
+public class ArrayListStack<T> {
     private ArrayList<T> _array;
     
     /**

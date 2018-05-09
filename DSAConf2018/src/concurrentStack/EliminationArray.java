@@ -1,4 +1,4 @@
-package concurrentStackQueue;
+package concurrentStack;
 
 import java.util.Random;
 import java.util.concurrent.TimeUnit;

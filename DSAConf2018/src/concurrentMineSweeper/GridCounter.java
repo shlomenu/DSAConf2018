@@ -1,16 +1,11 @@
-package mineSweeping;
-
-// Data Structures & Algorithms
-// Spring 2018
-// HW2: bfs/dfs traversal
-
+package concurrentMineSweeper;
 
 /**
  * two-dimensional grid of counters (solution)
  * 
  * @author Michael Siff
  */
-public class GridCounter implements GridCounterInterface {
+public class GridCounter {
 
     private int[][] _matrix;
     private int _columns;

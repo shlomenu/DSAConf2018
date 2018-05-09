@@ -1,9 +1,4 @@
-package mineSweeping;
-
-// Data Structures & Algorithms
-// Spring 2018
-// HW2: bfs/dfs traversal
-
+package concurrentMineSweeper;
 
 /**
  * depth-first grid traversal (solution)
@@ -12,8 +7,8 @@ package mineSweeping;
  */
 public class Dfs implements TraverserInterface {
 
-    private GridSetInterface _grid;
-    private StackInterface<Pair<Integer, Integer>> _stack;
+    private GridSet _grid;
+    private ArrayListStack<Pair<Integer, Integer>> _stack;
     private int _columns;
     private int _rows;
     

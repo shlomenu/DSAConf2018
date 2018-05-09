@@ -1,18 +1,13 @@
-package mineSweeping;
-
-// Data Structures & Algorithms
-// Spring 2018
-// HW2: bfs/dfs traversal
-
+package concurrentMineSweeper;
 
 /**
  * two-dimensional grid visitation set (solution)
  * 
  * @author Michael Siff
  */
-public class GridSet implements GridSetInterface {
+public class GridSet {
 
-    private GridCounterInterface _grid;
+    private GridCounter _grid;
 
     public GridSet(int columns, int rows) {
         _grid = new GridCounter(columns, rows);

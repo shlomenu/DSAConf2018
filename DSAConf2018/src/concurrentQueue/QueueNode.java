@@ -1,4 +1,4 @@
-package concurrentStackQueue;
+package concurrentQueue;
 
 import java.util.concurrent.atomic.AtomicReference;
 

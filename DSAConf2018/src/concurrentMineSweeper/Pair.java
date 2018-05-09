@@ -1,16 +1,11 @@
-package mineSweeping;
-
-// Data Structures & Algorithms
-// Spring 2018
-// HW2: bfs/dfs traversal
-
+package concurrentMineSweeper;
 
 /** 
  * generic immutable pairs (solution)
  *
  * @author Michael Siff
  */
-public class Pair<T, U> implements PairInterface<T, U> {
+public class Pair<T, U> {
 
     private T _first;
     private U _second;
@@ -23,7 +18,7 @@ public class Pair<T, U> implements PairInterface<T, U> {
     public T first() { return _first; }
     public U second() { return _second; }
 
-    public boolean equals(PairInterface<T, U> otherPair) {
+    public boolean equals(Pair<T, U> otherPair) {
         return _first.equals(otherPair.first()) &&
             _second.equals(otherPair.second());
     }

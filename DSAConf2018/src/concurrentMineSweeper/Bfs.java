@@ -1,5 +1,4 @@
-package mineSweeping;
-
+package concurrentMineSweeper;
 
 /**
  * breadth-first grid traversal (solution)
@@ -8,8 +7,8 @@ package mineSweeping;
  */
 public class Bfs implements TraverserInterface {
 
-    private GridSetInterface _grid;
-    private QueueInterface<Pair<Integer, Integer>> _queue;
+    private GridSet _grid;
+    private ArrayListQueue<Pair<Integer, Integer>> _queue;
     private int _columns;
     private int _rows;
     

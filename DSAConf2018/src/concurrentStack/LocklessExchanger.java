@@ -1,4 +1,4 @@
-package concurrentStackQueue;
+package concurrentStack;
 
 import java.util.concurrent.atomic.AtomicStampedReference;
 import java.util.concurrent.TimeUnit;
