@@ -6,40 +6,15 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.EmptyStackException;
 import java.util.Scanner;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 import concurrentStack.EliminationBackoffStack;
 
-@SuppressWarnings("unused")
+
 public class concurrentParser {
 	
 	public static final int INITIAL_NUMBER_OF_THREADS = 3;
-	
-	// Java did not provide an easy way to do this via String methods
-	private static class Iterator {
-		String _string;
-		int _index = 0;
-		
-		public Iterator(String str) {
-			_string = str;
-		}
-		
-		public boolean hasNext() {
-			if (_index + 1 > _string.length()) {
-				return false;
-			} else {
-				return true;
-			}
-		}
-		
-		// Just wrapper around charAt; must be used with hasNext to be safe
-		public char next() {
-			char result = _string.charAt(_index);
-			_index++;
-			return result;
-		}
-	}
 
 	public static void main(String[] args) throws IOException, InvalidArithmeticExpressionException {
 		// Fetching string from given file
@@ -50,104 +25,147 @@ public class concurrentParser {
 		String source = new String(Files.readAllBytes(Paths.get(filename)));
 		scanner.close();
 		
-		// Building expressions and operations list and array (respectively)
+		// Building expressions and operations arrays (respectively)
 		@SuppressWarnings("rawtypes")
-		Object[] expressions = expressionBuilder(new Iterator(source), new ArrayList<Symbol>(), 1);
-		Object[] operations = new Object[expressions.length];
+		AtomicReferenceArray<Symbol> expressions = expressionBuilder(new Iterator(source), new ArrayList<Symbol>(), 1);
+		AtomicReferenceArray<Operation> operations = new AtomicReferenceArray<Operation>(expressions.length());
+		EliminationBackoffStack<Operation> stack = new EliminationBackoffStack<Operation>(INITIAL_NUMBER_OF_THREADS);
+		AtomicInteger priorityLevel = new AtomicInteger(1);
+		AtomicInteger number_unprocessed_symbols = new AtomicInteger(expressions.length());
 		
-		// make (default) three new threads
+		// make default number of threads (3)
 		Thread[] threads = new Thread[INITIAL_NUMBER_OF_THREADS];
 		for (int j = 0; j < threads.length; j++) {
-			
 			threads[j] = new Thread(new Runnable() { 
-				
-				// It makes it much easier to pair up operations and operands if 
-				// their order from the original expression is maintaned, so it is 
-				// most efficient if expressions and operations are both just arrays,
-				// one of which is being nullified as the other is being populated.  
-				// We must count how many Symbol objects actually remain since the size
-				// of expressions is constant
-				
-				volatile int priorityLevel = 1; // keeps the stack ordered
-				volatile int number_unprocessed_symbols = expressions.length;
-				EliminationBackoffStack<Operation> stack = new EliminationBackoffStack<Operation>(3);
 				
 				@SuppressWarnings({ "rawtypes", "unchecked" })
 				public void run() {
 					// This loop does all the pushing
-					while (number_unprocessed_symbols > 0) { 
+					while (number_unprocessed_symbols.get() > 0) { 
 					opLoop: 
 						while (true) { // This loop prepares the operations of each priority level
-							
-							for (int i = 0; i < expressions.length; i++) {
-								
-								// if priority level was not held constant through a successful iteration,
-								// it is possible that operand pointers from a previous priority level 
-								// would be "left behind."
-								int myPriorityLevel = priorityLevel;
-								
-								// for-loop can only reach end if it finds no operations,
-								// so it should move on to finding operands
-								if (expressions[i] == null) {
-									if (i + 1 == expressions.length) {
-										break opLoop;
-									} else {
-										continue;
-									}
-								} 
-								
-								Symbol _symbol = (Symbol) expressions[i];
-								
-								// if current symbol contains an operation and matches current priority level
-								if (_symbol._field.getClass() == Boolean.class && _symbol._priority == myPriorityLevel) {
-									
-									// All operations are inserted with null operands, pointers added at higher levels
-									Operation op = new Operation(null, (boolean)_symbol._field, null, _symbol._priority);
-									
-									// Remove from expressions
-									synchronized (expressions) {
-										if (_symbol == expressions[i]) { // Check if some other thread go to it
-											expressions[i] = null; // if not nullify
-										} else { // if so traverse again
-											continue opLoop;
-										}
-									}
-									
-									// Operation can be pushed as soon as it has been 
-									// uniquely removed.
-									stack.push(op);
-									
-									// Discount removed symbol
-									number_unprocessed_symbols--;
-								
-									// add to operations
-									synchronized (operations) { 
-										operations[i] = op;
-									}
-										
-									// Only level 1 operations (there should only be one) are not the operand
-									// of any other operation
-									if (myPriorityLevel > 1) {
-										Operation curr;
-										// Iterate over operations
-										for (int k = 0; k < operations.length; k++) {
-											curr = (Operation) operations[k];
-											if (curr == null) {
-												continue; // skip nulls
-											} else if (curr._priority == op._priority - 1) { // there can only be one of these
-												if (k < i) { // operation is right of parent operation
-													curr._rightOperand = new Operand(op, op._priority);
-												} 
-												if (i < k) { // operation is left of parent operation
-													curr._leftOperand = new Operand(op, op._priority);
+							int initialPriorityLevel = priorityLevel.get();
+							for (int i = 0; i < expressions.length(); i++) {
+								Symbol symbol = expressions.get(i);
+								if (symbol != null) {
+									if (symbol._field.getClass() == Boolean.class && symbol._priority == priorityLevel.get()) {
+										if (expressions.compareAndSet(i, symbol, null)) {
+											Operation op = new Operation(null, (boolean) symbol._field, null, symbol._priority);
+											operations.set(i, op);
+											number_unprocessed_symbols.getAndDecrement();
+											stack.push(op);
+											if (op._priority > 1) {
+												Operation curr;
+												for (int k = 0; k < operations.length(); k++) {
+													curr = operations.get(k);
+													if (curr == null) {
+														continue; 
+													} else if (curr._priority == op._priority - 1) { 
+														if (k < i) { // operation is right of parent operation
+															if (curr._rightOperand != null) {
+																continue;
+															} else {
+																curr._rightOperand = new Operand(op, op._priority);
+															}
+														} 
+														if (i < k) { // operation is left of parent operation
+															if (curr._leftOperand != null) {
+																continue;
+															} else {
+																curr._leftOperand = new Operand(op, op._priority);
+															}
+														}
+														// Begin new traversal of expressions
+														continue opLoop;
+													}
 												}
-												// Begin new traversal of expressions
-												continue opLoop;
+												throw new InvalidArithmeticExpressionException();
 											}
 										}
-										// if for some inconceivable reason there is a parent and it 
-										throw new InvalidArithmeticExpressionException();
 									}
+								} 
+								if (i + 1 == expressions.length() && initialPriorityLevel == priorityLevel.get()) {
+									break opLoop;
+								}
+							}
+						}
+								
+								
+//								if (symbol == null) {
+//									if (i + 1 == expressions.length() && initialPriorityLevel == priorityLevel.get()) {
+//										break opLoop;
+//									} else {
+//										continue;
+//									}
+//								} else if 
+								
+								// if current symbol contains an operation and matches current priority level
+//								if (symbol._field.getClass() == Boolean.class && symbol._priority == priorityLevel.get()) {
+//									
+//									// Remove from expressions
+//									if (!expressions.compareAndSet(i, symbol, null)) {
+//										continue opLoop;
+//									}
+									
+									// create new Operation object with same boolean field and priority level as symbol
+//									Operation op = new Operation(null, (boolean) symbol._field, null, symbol._priority);
+//									operations.set(i, op); // add it ASAP
+//									
+//									// Discount removed symbol
+//									number_unprocessed_symbols.getAndDecrement();
+//									
+//									// It has been uniquely removed so it can be pushed
+//									stack.push(op);
+//									
+//									synchronized (expressions) {
+//										if (_symbol == expressions[i]) { // Check if some other thread go to it
+//											expressions[i] = null; // if not nullify
+//										} else { // if so traverse again
+//											continue opLoop;
+//										}
+//									}
+									
+//									synchronized (operations) { 
+//										operations[i] = op;
+//									}
+										
+									// Only level 1 operations (there should only be one) are 
+									// not the operand of any other operation
+//									if (op._priority > 1) {
+//										Operation curr;
+//										// Iterate operations
+//										for (int k = 0; k < operations.length(); k++) {
+//											curr = operations.get(k);
+//											if (curr == null) {
+//												continue; 
+//											} else if (curr._priority == op._priority - 1) { 
+//												if (k < i) { // operation is right of parent operation
+//													if (curr._rightOperand != null) {
+//														continue;
+//													} else {
+//														curr._rightOperand = new Operand(op, op._priority);
+//													}
+//												} 
+//												if (i < k) { // operation is left of parent operation
+//													if (curr._leftOperand != null) {
+//														continue;
+//													} else {
+//														curr._leftOperand = new Operand(op, op._priority);
+//													}
+//												}
+//												// Begin new traversal of expressions
+//												continue opLoop;
+//											}
+//										}
+										// The expressionBuilder function can check whether the input expression
+										// uses the right characters in a valid order; it doesn't check if that 
+										// expression is a tree.  Operation objects represent binary operations,
+										// so if an expression is supplied that is not a tree, there will be some
+										// Operation for which a parent cannot be found.  That check will have been
+										// done if a complete traversal is performed and no Operation with null operands
+										// on the appropriate side has been found.
+//										throw new InvalidArithmeticExpressionException();
+//									}
 										
 //										while (!expressionsLock.tryLock()) {
 //											try {
@@ -195,55 +213,91 @@ public class concurrentParser {
 //											continue opLoop;
 //										}
 										
-								}
+//								}
 								
-								// if completed full traversal 
-								if (i + 1 == expressions.length) {
-									break opLoop;
-								}
-							}
-						}
+								// if full traversal of expressions completed without finding 
+								// an unprocessed operation, move on to locating operands
+//								if (i + 1 == expressions.length() && initialPriorityLevel == priorityLevel.get()) {
+//									break opLoop;
+//								}
+//							}
+//						}
 					oprdLoop:
-						while (number_unprocessed_symbols > 0) { // This loop processes the operands of each priority level	
-							for (int i = 0; i < expressions.length; i++) {
-								
-								int myPriorityLevel = priorityLevel;
-								
-								if (expressions[i] == null) {
-									if (i + 1 == expressions.length) {
-										priorityLevel++;
-										break oprdLoop;
-									} else {
-										continue;
-									}
-								} 
-								
-								Symbol _symbol = (Symbol) expressions[i];
-							
-								if (_symbol._field.getClass() == Integer.class && _symbol._priority == myPriorityLevel) {
-											
-									Operand oprd = new Operand(((Symbol<Integer>)_symbol)._field, _symbol._priority);
-										
-									synchronized (expressions) {
-										if (_symbol == expressions[i]) {
-											expressions[i] = null;
-										} else {
-											continue oprdLoop;
-										}
-									}
-										
-									synchronized (operations) {
-										if (i > 0) {
-											if (((Operation)operations[i-1])._priority == oprd._priority) {
-												((Operation)operations[i-1])._rightOperand = oprd;
-											} 
-										}
-										if (i < expressions.length - 1) {
-											if (((Operation)operations[i+1])._priority == oprd._priority) {
-												((Operation)operations[i+1])._leftOperand = oprd;
+						while (true) { // This loop processes the operands of each priority level	
+							int initialPriorityLevel = priorityLevel.get();
+							for (int i = 0; i < expressions.length(); i++) {
+								Symbol symbol = expressions.get(i);
+								if (symbol != null) {
+									if (symbol._field.getClass() == Integer.class && symbol._priority == priorityLevel.get()) {
+										if (expressions.compareAndSet(i, symbol, null)) {
+											Operand oprd = new Operand((Integer)symbol._field, symbol._priority);
+											Operation minus = null, plus = null;
+											boolean minusLevel = true, plusLevel = true;
+											while (true) {
+												if (i > 0 && minusLevel) {
+													minus = operations.get(i-1);
+												}
+												if (i < operations.length() - 1 && plusLevel) {
+													plus = operations.get(i+1);
+												}
+												if (minus != null) {
+													if (minus._priority == oprd._priority) {
+														minus._rightOperand = oprd;
+													} else {
+														minusLevel = false;
+													}
+												}
+												if (plus != null) {
+													if (plus._priority == oprd._priority) {
+														minus._leftOperand = oprd;
+													} else {
+														plusLevel = false;
+													}
+												}
+												continue oprdLoop;
 											}
 										}
 									}
+								} else {
+									if (initialPriorityLevel != priorityLevel.get()) {
+										break oprdLoop;
+									} else if (i + 1 == expressions.length()) {
+										priorityLevel.getAndIncrement();
+										break oprdLoop;
+									}
+								} 
+							}
+						}
+						
+								
+//								Symbol _symbol = (Symbol) expressions[i];
+//							
+//								if (_symbol._field.getClass() == Integer.class && _symbol._priority == priorityLevel) {
+//											
+									
+										
+//									synchronized (expressions) {
+//										if (_symbol == expressions[i]) {
+//											expressions[i] = null;
+//										} else {
+//											continue oprdLoop;
+//										}
+//									}
+										
+//									synchronized (operations) {
+//										if (i > 0) {
+//											if (((Operation)operations[i-1])._priority == oprd._priority) {
+//												((Operation)operations[i-1])._rightOperand = oprd;
+//											} 
+//											continue oprdLoop;
+//										}
+//										if (i < expressions.length() - 1) {
+//											if (((Operation)operations[i+1])._priority == oprd._priority) {
+//												((Operation)operations[i+1])._leftOperand = oprd;
+//											}
+//											continue oprdLoop;
+//										}
+//									}
 										
 //										while (!expressionsLock.tryLock()) {
 //											try {
@@ -280,16 +334,31 @@ public class concurrentParser {
 										
 								}
 								
+								// if a full traversal was completed, then either this thread 
+								// was first to discover that all the operands on this level 
+								// have been exhausted and the very first loop should be restarted,
+								// or the priority level was changed by another thread mid-traversal,
+								// and the i
+								// If priorityLevel is raised mid traversal relative to some thread,
+								// the myPriority level and priorityLevel will not be equal
+								// traversal of operations could find no results not because there
+								// are none, but because priorityLevel was changed midway through 
+								// and not all members of operations were checked at the new priority
+								// level.  
 								// if passed through all Symbol<Boolean>'s and now all Symbol<Integer>'s 
 								// at this priority level, raise priority level and restart pushing loop
-								if (i + 1 == expressions.length) {
-									priorityLevel++;
-									break oprdLoop;
-								}
-							}
-						}
+//								synchronized (priorityLevel) {
+//									if (initialPriorityLevel != priorityLevel) {
+//										break oprdLoop;
+//									} else if (i + 1 == expressions.length()) {
+//										priorityLevel++;
+//										break oprdLoop;
+//									}
+//								}
+//							}
+//						}
 						
-					}
+//					}
 			
 					// This is the popping loop
 					Operation mine;
@@ -309,7 +378,6 @@ public class concurrentParser {
 									// an empty stack.
 						}
 					}
-			
 				}
 			});
 		}
@@ -320,9 +388,36 @@ public class concurrentParser {
 		
 	}
 	
-	private static Object[] expressionBuilder(Iterator it, ArrayList<Symbol> list, int priority) throws InvalidArithmeticExpressionException {
+	// Java did not provide an easy way to do this via String methods
+	private static class Iterator {
+		String _string;
+		int _index = 0;
+				
+		public Iterator(String str) {
+			_string = str;
+		}
+				
+		public boolean hasNext() {
+			if (_index + 1 > _string.length()) {
+				return false;
+			} else {
+				return true;
+			}
+		}
+				
+		// Just wrapper around charAt; must be used with hasNext to be safe
+		public char next() {
+			char result = _string.charAt(_index);
+			_index++;
+			return result;
+		}
+	}
+	
+	// This method just conveniently returns the expression in an array
+	@SuppressWarnings("rawtypes")
+	private static AtomicReferenceArray<Symbol> expressionBuilder(Iterator it, ArrayList<Symbol> list, int priority) throws InvalidArithmeticExpressionException {
 		expressionBuilderHelper(it, list, priority);
-		return list.toArray();
+		return new AtomicReferenceArray<Symbol>((Symbol[])list.toArray());
 		
 	}
 	
@@ -344,7 +439,7 @@ public class concurrentParser {
 						}
 					}
 				} else if (next == '(') { // if open parenthesis recurse
-					expressionBuilder(it, list, priority + 1);
+					expressionBuilderHelper(it, list, priority + 1);
 					if (priority > 1) { // if priority == 1 there may be nothing next
 						next = it.next();
 					}
@@ -375,5 +470,4 @@ public class concurrentParser {
 			}
 		}
 	}
-	
 }

@@ -1,6 +1,6 @@
 package concurrentArithmetic;
 
-public class InvalidArithmeticExpressionException extends Exception {
+public class InvalidArithmeticExpressionException extends RuntimeException {
 
 	/**
 	 * 

@@ -16,8 +16,7 @@ public class Operand {
 	}
 	
 	public Integer getField() {
-		Integer y = 0;
-		if (_field.getClass() == y.getClass()) {
+		if (_field.getClass() == Integer.class) {
 			return ((Integer)_field);
 		} else {
 			return ((Operation)_field)._field;
