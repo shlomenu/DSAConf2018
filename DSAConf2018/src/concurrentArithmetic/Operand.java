@@ -1,5 +1,13 @@
 package concurrentArithmetic;
 
+// Operand provide an interface
+// for use by Operation objects that 
+// eliminates the need to discriminate 
+// between addition/multiplication of 
+// numbers and addition/multiplication 
+// of the results computed by other 
+// Operation Objects.
+
 public class Operand {
 	
 	private final Object _field;
