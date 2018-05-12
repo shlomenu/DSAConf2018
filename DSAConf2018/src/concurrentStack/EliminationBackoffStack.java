@@ -1,5 +1,7 @@
 package concurrentStack;
 
+// Largely transcribed
+
 import java.util.EmptyStackException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -24,8 +26,10 @@ public class EliminationBackoffStack<T> {
 	
 	public void push(T value) {
 		RangePolicy rangePolicy = policy.get();
+		// create new node
 		StackNode<T> node = new StackNode<T>(value);
 		while (true) {
+			// alternate trying to push and visiting the elimination array
 			if (tryPush(node)) {
 				return;
 			} else try {
@@ -58,6 +62,7 @@ public class EliminationBackoffStack<T> {
 	public T pop() throws EmptyStackException {
 		RangePolicy rangePolicy = policy.get();
 		while (true) {
+			// very similar schema, besides trying to pop
 			StackNode<T> node = tryPop();
 			if (node != null) {
 				return node.value;
@@ -91,7 +96,7 @@ public class EliminationBackoffStack<T> {
 		if (top.compareAndSet(oldTop, newTop)) {
 			return oldTop;
 		} else {
-			return null;
+			return null; // indicates failure
 		}
 	}
 	

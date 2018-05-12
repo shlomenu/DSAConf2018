@@ -105,4 +105,10 @@ Michael Siff
 	a concurrent syntax tree would generally be better for such a process, though its state would not so 
 	easily be frozen or inspected.  Nor could it be used to follow stepwise through a series of recursive calls.
 	
+	arithmetic always completes quickly precisely because it is a very balanced tree.  lopsidedArithmetic, however, 
+	produces a much less consistent result.  If an operation seems to be looping forever, it is because it is,
+	do not be hesitant to terminate.  The problem of occasional non termination could probably be fixed by 
+	giving each thread its own priority level.  However, sometimes even the single threaded case stalls.  It is 
+	not clear that this is the only potential issue
+	
 		

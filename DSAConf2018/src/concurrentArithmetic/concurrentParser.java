@@ -22,7 +22,7 @@ public class concurrentParser {
 		Scanner scanner = new Scanner(System.in);
 		System.out.println("Working directory: " + System.getProperty("user.dir"));
 //		System.out.print("File to parse: ");
-		String filename = "lopsidedArithmetic.txt"; //scanner.next();
+		String filename = "arithmetic.txt"; //scanner.next();
 		String source = new String(Files.readAllBytes(Paths.get(filename)));
 		
 		// Build atomic Symbol array and Operation array, some bookkeeping integers, and initialize stack 

@@ -1,5 +1,7 @@
 package concurrentStack;
 
+// Original code
+
 public class StackNode<T> {
 
 	public T value;
