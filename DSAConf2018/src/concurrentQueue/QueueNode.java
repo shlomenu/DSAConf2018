@@ -1,5 +1,7 @@
 package concurrentQueue;
 
+// Original code
+
 import java.util.concurrent.atomic.AtomicReference;
 
 public class QueueNode<T> {

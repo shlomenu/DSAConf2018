@@ -14,7 +14,7 @@ import concurrentStack.EliminationBackoffStack;
 
 public class concurrentParser {
 	
-	public static final int NUMBER_OF_THREADS = 1;
+	public static final int NUMBER_OF_THREADS = 5;
 
 	@SuppressWarnings("rawtypes")
 	public static void main(String[] args) throws IOException {
@@ -22,7 +22,7 @@ public class concurrentParser {
 		Scanner scanner = new Scanner(System.in);
 		System.out.println("Working directory: " + System.getProperty("user.dir"));
 //		System.out.print("File to parse: ");
-		String filename = "reallyBigArithmetic.txt"; //scanner.next();
+		String filename = "lopsidedArithmetic.txt"; //scanner.next();
 		String source = new String(Files.readAllBytes(Paths.get(filename)));
 		
 		// Build atomic Symbol array and Operation array, some bookkeeping integers, and initialize stack 
@@ -32,83 +32,50 @@ public class concurrentParser {
 		AtomicInteger priorityLevel = new AtomicInteger(1);
 		AtomicInteger number_unprocessed_symbols = new AtomicInteger(expressions.length());
 		
-//		System.out.print("[");
-//		for (int j = 0; j < expressions.length(); j++) {
-//			System.out.println("{ " + expressions.get(j)._field + ", " + expressions.get(j)._priority + ", " + expressions.get(j)._token + ", " + expressions.get(j).hashCode() + "}");
-//		}
-//		System.out.println("]");
-		
 		Thread[] threads = new Thread[NUMBER_OF_THREADS];
 		for (int j = 0; j < threads.length; j++) {
 			threads[j] = new Thread(new Runnable() { 
 				
 				public void run() {
-					while (number_unprocessed_symbols.get() > 0) { 
+					while (number_unprocessed_symbols.get() > 0) { // good for preventing infinite loops
 					opLoop: 
 						while (true) { // This loop prepares the operations of each priority level
-							int initialPriorityLevel = priorityLevel.get();
+							int initialPriorityLevel = priorityLevel.get(); // necessary for telling whether a consistent traversal has been done
 							for (int i = 0; i < expressions.length(); i++) {
 								Symbol symbol = expressions.get(i);
-								if (symbol != null) {
+								if (symbol != null) { // if it's not null, Boolean, and of the right priority
 									if (symbol._field.getClass() == Boolean.class && symbol._priority == initialPriorityLevel) {
-										if (expressions.compareAndSet(i, symbol, null)) {
+										if (expressions.compareAndSet(i, symbol, null)) { // try to CAS
 											Operation op = new Operation(null, (boolean) symbol._field, null, symbol._priority, symbol._parentToken, symbol._childToken);
-											System.out.println("Here is my new Operation: " + op._operator + " priority " + op._priority); 
-											operations.set(i, op);
-											System.out.println("operations: " + operations.get(i)._operator + " " + operations.get(i)._priority);
-											number_unprocessed_symbols.getAndDecrement();
-											System.out.println("I have " + number_unprocessed_symbols.get() + " unprocessed symbols");
-											stack.push(op);
-											if (op._priority > 1) {
+											operations.set(i, op); // set the new Operation
+											number_unprocessed_symbols.getAndDecrement(); // One down
+											stack.push(op); // It's been uniquely removed, so it is safe to push
+											if (op._priority > 1) { // the one op with priority of 1 is the root
 												Operation curr;
 												while (true) {
-													for (int t = 0; t < operations.length(); t++) {
-														if (operations.get(t) != null) {
-															System.out.print(operations.get(t)._operator + " ");
-														} else {
-															System.out.print(operations.get(t) + " ");
-														}
-													}
-													System.out.println();
-													System.out.println("My priority is " + op._priority);
 													for (int k = 0; k < operations.length(); k++) {
-														System.out.println("Operand loop index: " + k);
 														curr = operations.get(k);
-														if (curr != null) {
-															System.out.println("What is curr._priority? It is " + curr._priority + " and what is op_.priority " + op._priority);
-															System.out.println("What is curr._childToken? It is " + curr._childToken + ". And what is op._parentToken? " + op._parentToken);
-														}
-															
 														if (curr == null) {
-															System.out.println("Curr was null");
 															continue; 
+															// if the operation is non-null and has the right hashcode stored
 														} else if (curr._childToken == op._parentToken) { 
-															System.out.println("Currently examining a priority " + curr._priority + " operation");
 															if (k < i) { // operation is right of parent operation
-																System.out.println("I was left of the operation");
 																if (curr._rightOperand != null) {
-																	System.out.println("Drats! left of the operation was null");
-//																	System.out.println("It is " + curr._operator + " with operand " + curr._rightOperand.getField());
 																	continue;
-																} else {
+																} else { // only set if it won't be overwriting
 																	curr._rightOperand = new Operand(op, op._priority);
-																	System.out.println("I was left of the operation");
-
 																}
 															} 
 															if (i < k) { // operation is left of parent operation
 																if (curr._leftOperand != null) {
-																	System.out.println("Drats! right of the operation was null");
-//																	System.out.println("It is " + curr._operator + " with operand " + curr._rightOperand.getField());
 																	continue;
-																} else {
+																} else { // only set if it won't be overwriting
 																	curr._leftOperand = new Operand(op, op._priority);
-																	System.out.println("I was right of the operation");
 																}
 															}
-															System.out.println("I didn't match either condition");
 															// Begin new traversal of expressions
-															continue opLoop;
+															continue opLoop; 
+															// if neither condition applied, something is weird, just start over
 														}
 														
 													}
@@ -116,10 +83,14 @@ public class concurrentParser {
 											}
 										}
 									}
-								} System.out.println("I'm trapped in this horrible condition");
+								} 
 								if (initialPriorityLevel != priorityLevel.get()) {
+									// update initial priority level if it is out of date
+									// if this is true, then all threads should reset to opLoop anyway
 									initialPriorityLevel = priorityLevel.get();
 								} else if (i + 1 == expressions.length()) {
+									// if the traversal was consistent and is at its end, 
+									// move on to searching for Symbol<Integer>'s
 									break opLoop;
 								} 
 								
@@ -127,9 +98,7 @@ public class concurrentParser {
 						}
 					oprdLoop:
 						while (true) { // This loop processes the operands of each priority level	
-//							System.out.println("I'm in the operand loop");
 							int initialPriorityLevel = priorityLevel.get();
-//							System.out.println("This is my priority level: " + initialPriorityLevel);
 							for (int i = 0; i < expressions.length(); i++) {
 								Symbol symbol = expressions.get(i);
 								if (symbol != null) {
@@ -137,10 +106,10 @@ public class concurrentParser {
 										if (expressions.compareAndSet(i, symbol, null)) {
 											number_unprocessed_symbols.getAndDecrement();
 											Operand oprd = new Operand((Integer)symbol._field, symbol._priority);
+											// these booleans are used to prevent repetitive checking 
 											Operation minus = null, plus = null;
 											boolean minusLevel = true, plusLevel = true;
 											while (true) {
-												System.out.println("I'm stuck in the operand assignment loop");
 												if (i > 0 && minusLevel) {
 													minus = operations.get(i-1);
 												}
@@ -148,7 +117,7 @@ public class concurrentParser {
 													plus = operations.get(i+1);
 												}
 												if (minus != null) {
-													if (minus._priority == oprd._priority) {
+													if (minus._parentToken == symbol._parentToken) {
 														minus._rightOperand = oprd;
 														break;
 													} else {
@@ -156,7 +125,7 @@ public class concurrentParser {
 													}
 												}
 												if (plus != null) {
-													if (plus._priority == oprd._priority) {
+													if (plus._parentToken == symbol._parentToken) {
 														plus._leftOperand = oprd;
 														break;
 													} else {
@@ -177,31 +146,13 @@ public class concurrentParser {
 							}
 						}
 					}
-					System.out.println("I reached the popping loop");
 					// This is the popping loop
 					Operation mine;
 					while (true) { 
 						try {
-							System.out.println("I popped");
 							mine = stack.pop();
-							System.out.println("The priority of my popped operation is " + mine._priority);
-							if (mine._leftOperand != null) {
-								System.out.println("My left operand is " + mine._leftOperand.getField());
-							}
-							if (mine._rightOperand != null) { 
-								System.out.println("My right operand is " + mine._rightOperand.getField());
-							}
-							int count = 0;
-							while (mine._leftOperand == null || mine._rightOperand == null) {
-								count++;
-//								if (count > 1000) { return; }
-//								System.out.println("I'm spinning 1");/*spin*/
-								}
-							while (mine._leftOperand.getField() == null || mine._rightOperand.getField() == null) {
-								count++;
-//								if (count > 10000) {return; }
-//								System.out.println("I'm spinning 2");/*spin*/
-								}
+							while (mine._leftOperand == null || mine._rightOperand == null) {/*spin*/}
+							while (mine._leftOperand.getField() == null || mine._rightOperand.getField() == null) {/*spin*/}
 							// Because each operation's field must be calculated by a thread after it is popped,
 							// the recursion that would, ideally, be perfectly preserved by the stack, is necessary
 							if (mine._operator) { // if multiplication operation
@@ -273,9 +224,7 @@ public class concurrentParser {
 		Symbol<Boolean> symbol = new Symbol<Boolean>(null, priority, token, 0);
 		int myToken = symbol.hashCode();
 		symbol._childToken = myToken;
-		System.out.println("My priority " + priority);
-		System.out.println("I received the hashCode " + token);
-		System.out.println("I gave my children the hashCode " + myToken);
+		// childToken becomes parentToken upon recursive call
 		if (it.hasNext()) {
 			char next = it.next();
 			// Advances iterator for first character of each call/recursion
