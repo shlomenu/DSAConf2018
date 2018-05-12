@@ -92,23 +92,34 @@ Michael Siff
 	expression, and reallyBigArithmetic.txt is several times the size of arithmetic.txt.  
 	lopsidedArithmetic.txt is like arithmetic.txt, but lopsided, as the name suggests.  
 	
-	There is an issue with concurrentParser I could not entirely solve.  If expressions is 
-	quite large, then using only a few threads seems to create infinite, or at least very very 
-	long lasting loops.  This is potentially because in a very large array, it is easy for a small number 
-	of threads to accidentally leave behind an Operation on a given priority level.  If one leapfrogs 
-	ahead of the other just enough, it could be the case that the operations list is rendered incomplete
-	by the race condition.  An alternative to this construction would be for every thread to maintain a 
-	priority level counter.  This is probably a bit more than necessary; the problem may be alleviated with 
-	simply a moderate number of threads.  That said, having many threads seems to cause problems perhaps 
-	for similar reasons, but also just because of the sheer number of linear searches always taking place.
-	This is perhaps a good example why this mechanism is not a scalable way to do concurrent recursion; 
-	a concurrent syntax tree would generally be better for such a process, though its state would not so 
-	easily be frozen or inspected.  Nor could it be used to follow stepwise through a series of recursive calls.
+	For a reason I truly have not been able to understand, on very large (reallyBigArithmetic.txt)
+	and occasionally on more lopsided (lopsidedArithmetic.txt) expressions, concurrentParser will 
+	get into infinite loops.  It could also occasionally happens that everything gets popped off 
+	the stack, and the call terminates, but no final result is printed.  This second problem 
+	seems to mostly have gone away at some stage.  As for the infinite loops, I have done my 
+	best to locate them, and as far as I can tell, they seem to occur when a thread in the 
+	operations loop cannot find where to attach its operation and checks infinitely.  This could 
+	happen when an expression is malformed.  concurrentParser is only guaranteed to terminate when
+	the expression is a tree.  It cannot dynamically assess this because there is no way to tell 
+	whether the necessary result will never arrive or is merely pending another thread's progress 
+	elsewhere.  Either way, I have observed the same infinite loop with properly formed expressions.  
 	
-	arithmetic always completes quickly precisely because it is a very balanced tree.  lopsidedArithmetic, however, 
-	produces a much less consistent result.  If an operation seems to be looping forever, it is because it is,
-	do not be hesitant to terminate.  The problem of occasional non termination could probably be fixed by 
-	giving each thread its own priority level.  However, sometimes even the single threaded case stalls.  It is 
-	not clear that this is the only potential issue
+	It is clear that somewhere, there is a recursive connection that is never being made.  The only
+	way this could possibly happen is if one thread raises the priority level so as to somehow 
+	exclude a different thread from discovering an unprocessed symbol.  However, the exit conditions 
+	of the loops at the heart of concurrent parser absolutely forbid this.  It is only possible to 
+	raise the priority level after doing a full traversal on that priority level and finding no 
+	operations and no operands to process.  I have tried many things to fix it: giving each thread 
+	their own priority level (though it is quite wasteful); setting one initial priority level for 
+	both opLoop and oprdLoop, so that it is even forbidden that priority level can be changed by 
+	a different thread between the loops.  With any possible inconsistency, it is still true that 
+	for one thread to have advanced priority level in what seems like a premature way, a proper 
+	check eventually preceded it.  Even if many threads are spinning for a long time, it should 
+	be impossible that the operation they are waiting on is not eventually put in place by the 
+	thread that originally took it.  If you can see the problem, I would be very grateful.
+	
+	Nonetheless, on all but reallyBigArithmetic.txt, the program runs to completion with a correct 
+	answer either almost all or all of the time.  If it seems not to be termination, it is because 
+	it isn't.  For the sake of your computer's fan, do not be hesitant to terminate it yourself.  
 	
 		
