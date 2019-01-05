@@ -1,10 +1,9 @@
-Eli Whitehouse
-Data Structures & Algorithms
-Spring 2018
-Michael Siff
+##### Eli Whitehouse
+##### Data Structures & Algorithms
+##### Spring 2018
+##### Michael Siff
 
-
-					Concurrent Data Structures: Stacks and Queues
+# Concurrent Data Structures: Stacks and Queues
 							
 1. 	Over the course of this semester, I carefully studied chapters 1-11 of Herlihy 
 	and Shavit's The Art of Multiprocessor Programming.  In the course of that study I 
