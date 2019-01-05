@@ -1,5 +1,5 @@
 Eli Whitehouse
-Data Structures & Algorithms 
+Data Structures & Algorithms
 Spring 2018
 Michael Siff
 
